@@ -96,9 +96,10 @@ def _disrupt_and_recover(ctx, out, component: str, extra_ready=None) -> dict:
             break
         up = _api_up(ctx)
         if not up:
-            down += poll
-            first_down = first_down or now - start
-            last_down = now - start
+            # count the real time spent, including a ping that hung until its timeout
+            down += time.monotonic() - now + poll
+            first_down = first_down if first_down is not None else now - start
+            last_down = time.monotonic() - start
         elif api_back is None and first_down is not None:
             api_back = now - start
         if workloads_back is None and _replaced(ctx, pod) and _workloads_ready(ctx, component):
