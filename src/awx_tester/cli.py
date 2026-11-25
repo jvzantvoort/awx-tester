@@ -64,6 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--skip", action="append", default=[], metavar="PATTERN", help="skip matching checks")
     run.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE",
                      help="override an option, e.g. --set api_latency.iterations=50")
+    run.add_argument("--repeat", type=int, metavar="N",
+                     help="repeat each disruptive check N times and report medians (same as --set chaos.repeat=N)")
     run.add_argument("-f", "--format", default="console,html,junit,json", type=_csv,
                      help=f"outputs to produce, comma separated from {', '.join(FORMATS)} (json is always written)")
     run.add_argument("-o", "--output-dir", help="directory for report files (default: reports/<target>/<run id>)")
@@ -142,7 +144,10 @@ def cmd_run(args, console: Console) -> int:
 
     level = Level(args.level)
     authorize(target, level, confirm=args.confirm)
-    options = merge_options(target.options, parse_set(args.set))
+    if args.repeat is not None and args.repeat < 1:
+        raise ConfigError("--repeat must be 1 or more")
+    repeat = {"chaos": {"repeat": args.repeat}} if args.repeat else {}
+    options = merge_options(target.options, repeat, parse_set(args.set))
     checks = select(level, args.only, args.skip)
     if not checks:
         raise ConfigError("no checks selected")

@@ -151,6 +151,11 @@ Tune with `options:` in the targets file or `--set section.key=value`, e.g.
   (often 300 ms or more), and that cost swamps the latency you want to measure.
 - Data volume matters: the report records object counts (`scale.*`) so you can see whether two
   installations are alike.
+- Repeat disruptive checks with `--repeat N`, for example `-l disruptive --confirm lab --repeat 3`.
+  Each check then disrupts and recovers N times (waiting `chaos.settle_s` seconds between
+  repetitions). Each metric reports the median under its usual name, adds `<metric>_max` for the
+  worst repetition, and keeps every value in the `samples` attribute. The series stops at the
+  first failed repetition.
 - Single runs are noisy. `compare` ignores changes under `--threshold` (10 % by default) and
   under a per-unit noise floor (5 ms, 0.5 s, 1 %).
 - Label runs (`--label change=CHG123 --notes "after operator upgrade"`) so the history explains

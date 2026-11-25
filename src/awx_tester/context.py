@@ -55,7 +55,7 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "schedule": {"lead_s": 75, "timeout_s": 300},
     "job_throughput": {"jobs": 10, "timeout_s": 900},
     "event_throughput": {"hosts": 50, "forks": 10, "timeout_s": 900},
-    "chaos": {"recovery_timeout_s": 900, "poll_s": 1.0},
+    "chaos": {"recovery_timeout_s": 900, "poll_s": 1.0, "repeat": 1, "settle_s": 10},
 }
 
 
