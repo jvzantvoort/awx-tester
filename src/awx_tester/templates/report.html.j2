@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="awx-tester {{ r.tool.version }}">
+<title>awx-tester · {{ r.target.name }} · {{ r.run.started[:16] | replace("T", " ") }}</title>
+<style>{% include "_style.css.j2" %}</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>{{ platform.display or r.target.type }} {{ platform.version or "" }} · {{ r.target.name }}
+    <span class="badge s-{{ r.overall.value }}">{{ r.overall.value }}</span></h1>
+  <div class="meta">
+    <span>Level <b>{{ r.run.level }}</b></span>
+    <span>Started <b>{{ r.run.started[:19] | replace("T", " ") }} UTC</b></span>
+    <span>Duration <b>{{ r.run.duration_s }} s</b></span>
+    <span>Run <b class="mono">{{ r.run.id }}</b></span>
+    <span>URL <b class="mono">{{ r.target.url }}</b></span>
+    {% if r.target.namespace %}<span>Namespace <b class="mono">{{ r.target.namespace }}</b></span>{% endif %}
+    {% for k, v in r.target.labels.items() %}<span>{{ k }} <b>{{ v }}</b></span>{% endfor %}
+  </div>
+  {% if r.run.notes %}<p class="sub">{{ r.run.notes }}</p>{% endif %}
+  <div class="tiles">
+    {% for s in ["pass", "warn", "fail", "error", "skip"] %}
+    <div class="tile t-{{ s }}"><div class="n">{{ r.summary[s] }}</div><div class="l">{{ s }}</div></div>
+    {% endfor %}
+  </div>
+  {% for what, why in (r.run.unavailable or {}).items() %}
+  <div class="notice"><b>{{ what }}</b>: {{ why }}. Checks that need it were skipped.</div>
+  {% endfor %}
+  {% for p in r.run.cleanup_problems or [] %}<div class="notice">cleanup: {{ p }}</div>{% endfor %}
+</header>
+
+<h2>Sizing and configuration</h2>
+<div class="grid">
+  <table class="kv">
+    {% for k, v in sizing.items() %}<tr><td>{{ k }}</td><td>{{ v | v }}</td></tr>{% endfor %}
+  </table>
+  <table class="kv">
+    {% for k, v in (platform.scale or {}).items() %}<tr><td>{{ k | replace("_", " ") }}</td><td class="num">{{ v | v }}</td></tr>{% endfor %}
+  </table>
+</div>
+
+{% if cluster.nodes %}
+<h3>Nodes</h3>
+<table>
+  <tr><th>Node</th><th>Roles</th><th>Ready</th><th class="num">CPU</th><th class="num">Memory GiB</th>
+      <th class="num">Ephemeral GiB</th><th>Kubelet</th><th>OS</th><th>Runtime</th></tr>
+  {% for n in cluster.nodes %}
+  <tr><td class="mono">{{ n.name }}</td><td>{{ n.roles | join(", ") }}</td>
+      <td>{% if n.ready and not n.pressure %}<span class="badge s-pass">ready</span>{% else %}<span class="badge s-fail">{{ n.pressure | join(", ") or "not ready" }}</span>{% endif %}</td>
+      <td class="num">{{ n.cpu_allocatable | v }}</td><td class="num">{{ n.memory_allocatable_bytes | gib }}</td>
+      <td class="num">{{ n.ephemeral_storage_bytes | gib }}</td><td>{{ n.kubelet_version }}</td>
+      <td>{{ n.os_image }}</td><td>{{ n.container_runtime }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% set inst = cluster.installation or {} %}
+{% if inst.deployments or inst.statefulsets %}
+<h3>Workloads in {{ inst.name }}</h3>
+<table>
+  <tr><th>Workload</th><th>Component</th><th class="num">Ready</th><th>Containers (image · requests · limits)</th></tr>
+  {% for w in (inst.deployments or []) + (inst.statefulsets or []) %}
+  <tr><td class="mono">{{ w.name }}</td><td>{{ w.component }}</td><td class="num">{{ w.ready_replicas }}/{{ w.replicas }}</td>
+      <td>{% for c in w.containers %}<div class="mono">{{ c.name }}: {{ c.image }} · {{ c.requests.cpu or "–" }}/{{ c.requests.memory or "–" }} · {{ c.limits.cpu or "–" }}/{{ c.limits.memory or "–" }}</div>{% endfor %}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+{% if inst.pvcs %}
+<h3>Storage</h3>
+<table>
+  <tr><th>Claim</th><th>Class</th><th class="num">GiB</th><th>Phase</th></tr>
+  {% for p in inst.pvcs %}<tr><td class="mono">{{ p.name }}</td><td>{{ p.storage_class }}</td><td class="num">{{ (p.capacity_bytes or p.requested_bytes) | gib }}</td><td>{{ p.phase }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+{% if cluster.errors %}<details class="more"><summary>{{ cluster.errors | length }} cluster facts could not be read</summary><pre>{{ cluster.errors | join("\n") }}</pre></details>{% endif %}
+
+<h2>Results</h2>
+{% for cat in categories %}
+<h3>{{ cat }}</h3>
+{% for x in r.results if x.category == cat %}
+<details class="check"{% if x.status.value in ["fail", "error"] %} open{% endif %}>
+  <summary>
+    <span><span class="badge s-{{ x.status.value }}">{{ x.status.value }}</span></span>
+    <span><span class="mono">{{ x.id }}</span><br><span class="sub">{{ x.title }}</span></span>
+    <span class="km">{% for m in x.metrics[:4] %}{{ m.name }}={{ m.value | v(m.unit) }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+    <span class="dur">{{ "%.2f" | format(x.duration_s) }} s</span>
+  </summary>
+  <div class="body">
+    {% if x.message %}<p class="msg">{{ x.message }}</p>{% endif %}
+    <p class="sub">Level {{ x.level.value }}{% if x.tags %} · tags {{ x.tags | join(", ") }}{% endif %}</p>
+    {% if x.metrics %}
+    <table>
+      <tr><th>Metric</th><th class="num">Value</th><th>Better</th><th>Meaning</th></tr>
+      {% for m in x.metrics %}<tr><td class="mono">{{ m.name }}</td><td class="num">{{ m.value | v(m.unit) }}</td><td>{{ m.better.value if m.better.value != "none" else "" }}</td><td class="sub">{{ m.description }}</td></tr>{% endfor %}
+    </table>
+    {% endif %}
+    {% if x.details %}<pre>{{ x.details | join("\n") }}</pre>{% endif %}
+    {% if x.attributes %}<details class="more"><summary>attributes</summary><pre>{{ x.attributes | tojson(indent=2) }}</pre></details>{% endif %}
+  </div>
+</details>
+{% endfor %}
+{% endfor %}
+
+<h2>Full fingerprint</h2>
+<details class="more"><summary>{{ fingerprint | length }} configuration values used for comparisons</summary>
+<table class="kv">{% for k, v in fingerprint.items() %}<tr><td class="mono">{{ k }}</td><td class="mono">{{ v | v }}</td></tr>{% endfor %}</table>
+</details>
+
+<footer>
+  awx-tester {{ r.tool.version }} · report schema {{ r.schema_version }} · compare this run with others using
+  <code>awx-tester compare baseline.json this.json</code> (this HTML file works too).
+</footer>
+</main>
+<script type="application/json" id="awx-tester-report">{{ embedded | safe }}</script>
+</body>
+</html>

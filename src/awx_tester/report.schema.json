@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jvzantvoort/awx-tester/report.schema.json",
+  "title": "awx-tester report",
+  "description": "One run of awx-tester against one AWX, AAP or Ascender installation. Schema 1.x: additive changes only.",
+  "type": "object",
+  "required": ["schema_version", "tool", "run", "target", "environment", "summary", "results"],
+  "properties": {
+    "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+    "tool": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "awx-tester" },
+        "version": { "type": "string" },
+        "python": { "type": "string" }
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["id", "started", "finished", "duration_s", "level", "checks", "options"],
+      "properties": {
+        "id": { "type": "string" },
+        "started": { "type": "string", "format": "date-time" },
+        "finished": { "type": "string", "format": "date-time" },
+        "duration_s": { "type": "number" },
+        "level": { "$ref": "#/$defs/level" },
+        "checks": { "type": "array", "items": { "type": "string" } },
+        "options": { "type": "object", "description": "Effective tunables; differing options make performance numbers incomparable." },
+        "notes": { "type": "string" },
+        "unavailable": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Requirement -> why it was not available." },
+        "cleanup_problems": { "type": "array", "items": { "type": "string" } },
+        "kept_objects": { "type": "boolean" },
+        "redacted": { "type": "boolean" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "enum": ["awx", "aap", "ascender"] },
+        "url": { "type": ["string", "null"] },
+        "namespace": { "type": ["string", "null"] },
+        "kube_context": { "type": ["string", "null"] },
+        "instance": { "type": ["string", "null"] },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "protected": { "type": "boolean" },
+        "max_level": { "$ref": "#/$defs/level" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "Facts about the platform and the cluster. Shapes are documented in docs/report-format.md.",
+      "properties": {
+        "platform": { "type": "object" },
+        "cluster": { "type": "object" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["pass", "warn", "fail", "error", "skip", "total", "overall"],
+      "properties": {
+        "pass": { "type": "integer" }, "warn": { "type": "integer" }, "fail": { "type": "integer" },
+        "error": { "type": "integer" }, "skip": { "type": "integer" }, "total": { "type": "integer" },
+        "overall": { "$ref": "#/$defs/status" }
+      }
+    },
+    "results": { "type": "array", "items": { "$ref": "#/$defs/result" } }
+  },
+  "$defs": {
+    "level": { "enum": ["readonly", "mutating", "disruptive"] },
+    "status": { "enum": ["pass", "warn", "fail", "error", "skip"] },
+    "metric": {
+      "type": "object",
+      "required": ["name", "value", "unit", "better"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "value": { "type": "number" },
+        "unit": { "type": "string" },
+        "better": { "enum": ["lower", "higher", "none"] },
+        "description": { "type": "string" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": ["id", "title", "category", "level", "status", "duration_s", "metrics"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9_]+\\.[a-z0-9_]+$" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "level": { "$ref": "#/$defs/level" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "status": { "$ref": "#/$defs/status" },
+        "duration_s": { "type": "number" },
+        "message": { "type": "string" },
+        "details": { "type": "array", "items": { "type": "string" } },
+        "metrics": { "type": "array", "items": { "$ref": "#/$defs/metric" } },
+        "attributes": { "type": "object" }
+      }
+    }
+  }
+}

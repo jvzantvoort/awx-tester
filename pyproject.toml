@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "awx-tester"
+dynamic = ["version"]
+description = "Test, benchmark and report on AWX, Ansible Automation Platform and Ascender installations, with comparable reports."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "awx-tester contributors" }]
+keywords = ["awx", "ansible", "aap", "ascender", "kubernetes", "benchmark", "testing"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: System Administrators",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Benchmark",
+  "Topic :: System :: Systems Administration",
+]
+dependencies = [
+  "requests>=2.32",
+  "PyYAML>=6.0",
+  "Jinja2>=3.1",
+  "rich>=13.7",
+  "kubernetes>=31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "responses>=0.25",
+  "jsonschema>=4.23",
+  "ruff>=0.8",
+]
+
+[project.scripts]
+awx-tester = "awx_tester.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/jvzantvoort/awx-tester"
+Issues = "https://github.com/jvzantvoort/awx-tester/issues"
+
+[tool.hatch.version]
+path = "src/awx_tester/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/awx_tester"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]

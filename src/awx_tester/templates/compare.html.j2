@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>awx-tester comparison · {{ c.labels | length }} runs</title>
+<style>{% include "_style.css.j2" %}</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Comparison of {{ c.labels | length }} runs</h1>
+  <div class="meta"><span>Baseline <b>{{ c.labels[0] }}</b></span><span>Threshold <b>{{ c.threshold_pct }}%</b></span></div>
+  {% for w in c.warnings %}<div class="notice">{{ w }}</div>{% endfor %}
+  {% for label in c.labels[1:] %}{% set n = counts[loop.index] %}
+  <h3>{{ label }}</h3>
+  <div class="tiles">
+    <div class="tile t-fail"><div class="n">{{ n.regressed }}</div><div class="l">regressed</div></div>
+    <div class="tile t-pass"><div class="n">{{ n.improved }}</div><div class="l">improved</div></div>
+    <div class="tile t-warn"><div class="n">{{ n.changed }}</div><div class="l">changed</div></div>
+    <div class="tile"><div class="n">{{ n.environment_changes }}</div><div class="l">environment diffs</div></div>
+  </div>
+  {% endfor %}
+</header>
+
+<input type="checkbox" id="show-all"><label class="toggle" for="show-all"> show unchanged rows</label>
+
+{% macro head() %}<tr><th>Item</th>{% for l in c.labels %}<th>{% if loop.first %}baseline<br>{% endif %}{{ l }}</th>{% endfor %}</tr>{% endmacro %}
+
+<section>
+<h2>Environment</h2>
+<table>
+  {{ head() }}
+  {% for row in c.environment %}
+  <tr class="{{ 'changed' if row.interesting else 'same' }}"><td class="mono">{{ row.key }}</td>
+    {% for v in row.values %}<td class="mono v-{{ row.verdicts[loop.index0] }}">{{ v | v }}</td>{% endfor %}</tr>
+  {% endfor %}
+</table>
+</section>
+
+<section>
+<h2>Check outcomes</h2>
+<table>
+  {{ head() }}
+  {% for row in c.statuses %}
+  <tr class="{{ 'changed' if row.interesting else 'same' }}"><td><span class="mono">{{ row.key }}</span><br><span class="sub">{{ row.title }}</span></td>
+    {% for v in row.values %}<td>{% if v %}<span class="badge s-{{ v }}">{{ v }}</span>{% else %}<span class="sub">not run</span>{% endif %}
+      {% if not loop.first and row.verdicts[loop.index0] != "same" %}<span class="v-{{ row.verdicts[loop.index0] }}"> {{ row.verdicts[loop.index0] }}</span>{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+</table>
+</section>
+
+<section>
+<h2>Metrics</h2>
+<table>
+  {{ head() }}
+  {% for row in c.metrics %}
+  <tr class="{{ 'changed' if row.interesting else 'same' }}"><td><span class="mono">{{ row.key }}</span>{% if row.better != "none" %}<br><span class="sub">{{ row.better }} is better</span>{% endif %}</td>
+    {% for v in row.values %}<td class="num v-{{ row.verdicts[loop.index0] }}">{{ v | v(row.unit) }}{% if not loop.first and row.deltas[loop.index0] is not none %}<br><small>{{ row.deltas[loop.index0] | delta }}</small>{% endif %}</td>{% endfor %}</tr>
+  {% endfor %}
+</table>
+</section>
+
+<footer>awx-tester comparison. Metrics move only when the change exceeds {{ c.threshold_pct }}% and a small per-unit noise floor.</footer>
+</main>
+<script type="application/json" id="awx-tester-comparison">{{ embedded | safe }}</script>
+</body>
+</html>

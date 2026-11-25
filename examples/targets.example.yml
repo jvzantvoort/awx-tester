@@ -1,0 +1,59 @@
+# awx-tester targets file. Copy to ./awx-tester.yml or ~/.config/awx-tester/targets.yml.
+# Never commit real credentials: use password_env / token_env or password_secret.
+
+# Applied to every target; a target's own values win (mappings are merged one level deep).
+defaults:
+  verify_ssl: true            # false, or a path to a CA bundle
+  timeout: 30
+  options:
+    api_latency: {iterations: 10}
+
+targets:
+  # AWX installed by the awx-operator. The admin password is read from the
+  # operator-created secret, so only Kubernetes access is needed.
+  lab-awx:
+    type: awx
+    url: https://awx.lab.example.com
+    auth:
+      username: admin
+      password_secret: {name: awx-admin-password, key: password}   # namespace defaults to kubernetes.namespace
+    kubernetes:
+      context: lab                 # kubeconfig context; omit for the current one
+      namespace: awx
+      instance: awx                # name of the AWX custom resource; auto-detected when it is the only one
+      # kubeconfig: ~/.kube/lab.yaml
+    labels: {env: lab, site: ams1}
+    max_level: disruptive          # readonly | mutating | disruptive
+    options:
+      job_throughput: {jobs: 20}
+
+  # Ascender installed by ascender-install (namespace "ascender", custom resource "ascender-app").
+  test-ascender:
+    type: ascender
+    url: https://ascender.test.example.com
+    auth:
+      username: admin
+      password_env: ASCENDER_TEST_PASSWORD
+    kubernetes: {context: test, namespace: ascender, instance: ascender-app}
+    max_level: mutating
+
+  # AAP 2.5+ behind the platform gateway. A token keeps latency numbers honest
+  # (basic auth hashes the password on every request).
+  prod-aap:
+    type: aap
+    url: https://aap.example.com
+    auth:
+      token_env: AAP_PROD_TOKEN
+    kubernetes: {context: prod, namespace: aap}
+    protected: true                # read-only, whatever --level says
+    options:
+      workspace: {organization: Default}   # only relevant for mutating runs
+      api_concurrency: {workers: 4}
+
+  # API only, no cluster access (VM-based install or no kubeconfig).
+  vm-awx:
+    type: awx
+    url: https://awx-vm.example.com
+    verify_ssl: /etc/pki/tls/certs/internal-ca.pem
+    auth: {username: auditor, password_env: AWX_VM_PASSWORD}
+    kubernetes: false
